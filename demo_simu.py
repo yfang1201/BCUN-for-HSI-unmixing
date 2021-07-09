@@ -105,8 +105,9 @@ class DEMO(object):
         self.name = argin[3]
         self.abf_gt = np.reshape(np.reshape(self.abf_gt, [self.p, self.nCol, self.nRow]).transpose(0, 2, 1), [self.p, self.nCol*self.nRow])
         # 保存加了噪声的数据
-        # sio.savemat('./r/data_out_1/' + str(g) + '_mixed', {'mixed': self.data})
-        data_loc2 = './r/data_out_1/' + str(g) + '_mixed'
+        sio.savemat(result_path +'/data_out_var/' + str(g) + '_mixed', {'mixed': self.data})
+        #np.save(result_path +'/data_out_var/' + str(g) + '_mixed.npy', self.data)
+        data_loc2 = result_path +'/data_out_var/' + str(g) + '_mixed'
         self.data = sio.loadmat(data_loc2)['mixed']
         if argin[3] == 'AEsmm':
              if (verbose):
@@ -730,30 +731,32 @@ class DEMO(object):
         self.aid_var = np.var(self.aid_all_runs_value, axis=0)
         self.aid_std = np.std(self.aid_all_runs_value, axis=0)
 
-        self.sad_ssim = 1-ssim(self.sad_ab_min, self.abf_gt, win_size=3, multichannel=True)
+        self.sad_ssim = ssim(self.sad_ab_min, self.abf_gt, win_size=3, multichannel=True)
         self.sad_em_m = np.asmatrix(self.sad_em_min)
         self.sad_ab_m = np.asmatrix(self.sad_ab_min)
         self.sad_mse = mse(self.data, self.sad_em_m * self.sad_ab_m)
 
-        self.sid_ssim = 1-ssim(self.sid_ab_min, self.abf_gt, win_size=3, multichannel=True)
+        self.sid_ssim = ssim(self.sid_ab_min, self.abf_gt, win_size=3, multichannel=True)
         self.sid_em_m = np.asmatrix(self.sid_em_min)
         self.sid_ab_m = np.asmatrix(self.sid_ab_min)
         self.sid_mse = mse(self.data, self.sid_em_m * self.sid_ab_m)
 
-        self.aad_ssim = 1-ssim(self.aad_ab_min, self.abf_gt, win_size=3, multichannel=True)
+        self.aad_ssim = ssim(self.aad_ab_min, self.abf_gt, win_size=3, multichannel=True)
         self.aad_em_m = np.asmatrix(self.aad_em_min)
         self.aad_ab_m = np.asmatrix(self.aad_ab_min)
         self.aad_mse = mse(self.data, self.aad_em_m * self.aad_ab_m)
 
-        self.aid_ssim = 1-ssim(self.aid_ab_min, self.abf_gt, win_size=3, multichannel=True)
+        self.aid_ssim = ssim(self.aid_ab_min, self.abf_gt, win_size=3, multichannel=True)
         self.aid_em_m = np.asmatrix(self.aid_em_min)
         self.aid_ab_m = np.asmatrix(self.aid_ab_min)
         self.aid_mse = mse(self.data, self.aid_em_m * self.aid_ab_m)
 
         self.sad_S_img = np.reshape(self.sad_ab_min, [self.num_gtendm, self.nRow, self.nCol])
         self.abf_gt_img = np.reshape(self.abf_gt, [self.num_gtendm, self.nRow, self.nCol])
-        sio.savemat('./r/data_out_1/' + str(g) + self.name + 'ab', {'sad_ab_min_'+ self.name: self.sad_ab_min})
-        sio.savemat('./r/data_out_1/' + str(g) + self.name + 'em', {'sad_em_min_'+ self.name: self.sad_em_min})
+        #np.save(result_path +'/data_out/' + str(g) + self.name + 'ab.npy', self.sad_ab_min)
+        #np.save(result_path + '/data_out/' + str(g) + self.name + 'em.npy', self.sad_em_min)
+        sio.savemat(result_path +'/data_out_var/' + str(g) + self.name + 'ab', {'sad_ab_min_'+ self.name: self.sad_ab_min})
+        sio.savemat(result_path +'/data_out_var/' + str(g) + self.name + 'em', {'sad_em_min_'+ self.name: self.sad_em_min})
 
 def run():
     endmember_names = ['A', 'B', 'C', 'D']
@@ -761,10 +764,10 @@ def run():
     print("AEsmm")
     aesmm = DEMO([data_loc, gt_loc, num_endm, 'AEsmm'], verbose)
     aesmm.best_run(mrun)
-    print("AEsmm_mse")
+    '''print("AEsmm_mse")
     aesmmmse = DEMO([data_loc, gt_loc, num_endm, 'AEsmm_mse'], verbose)
-    aesmmmse.best_run(mrun)
-    print("PPI")
+    aesmmmse.best_run(mrun)'''
+    '''print("PPI")
     ppi = DEMO([data_loc, gt_loc, num_endm, 'PPI', nSkewers, initSkewers], verbose)
     ppi.best_run(mrun)
     print("NFINDR")
@@ -773,16 +776,16 @@ def run():
     print("VCA")
     vca = DEMO([data_loc, gt_loc, num_endm, 'VCA'], verbose)
     vca.best_run(mrun)
-    '''print("KPmeans")
+    print("KPmeans")
     kpmeans = DEMO([data_loc, gt_loc, num_endm, 'KPmeans', iter_KP], verbose)
     kpmeans.best_run(mrun)'''
     '''print("uDAs")
     udas = DEMO([data_loc, gt_loc, num_endm, 'uDAs'], verbose)
     udas.best_run(mrun)'''
 
-    algo = [ppi, nfindr, vca, aesmmmse, aesmm]
-    # algo = [aesmm,vca,kpmeans,udas]
-    # algo = [vca, aesmm]
+    #algo = [ppi, nfindr, vca, aesmmmse, kpmeans]
+    #algo = [aesmm,vca,kpmeans,udas]
+    algo = [aesmm]
 
     tab1_sad = pd.DataFrame()
     tab1_sad['Endmembers'] = endmember_names
@@ -801,19 +804,19 @@ def run():
     tab2_aid.set_index('Abundance', inplace=True)
 
     tab4_sad_stats = pd.DataFrame()
-    tab4_sad_stats['Statistics'] = ['_Mean_', '_Std_', '_Time_', '_1-Ssim_', '_Mse_']
+    tab4_sad_stats['Statistics'] = ['_Mean_', '_Std_', '_Time_', '_ssim_', '_Mse_']
     tab4_sad_stats.set_index('Statistics', inplace=True)
 
     tab4_aad_stats = pd.DataFrame()
-    tab4_aad_stats['Statistics'] = ['_Mean_', '_Std_', '_Time_', '_1-Ssim_', '_Mse_']
+    tab4_aad_stats['Statistics'] = ['_Mean_', '_Std_', '_Time_', '_ssim_', '_Mse_']
     tab4_aad_stats.set_index('Statistics', inplace=True)
 
     tab5_sid_stats = pd.DataFrame()
-    tab5_sid_stats['Statistics'] = ['_Mean_', '_Std_', '_Time_', '_1-Ssim_', '_Mse_']
+    tab5_sid_stats['Statistics'] = ['_Mean_', '_Std_', '_Time_', '_ssim_', '_Mse_']
     tab5_sid_stats.set_index('Statistics', inplace=True)
 
     tab5_aid_stats = pd.DataFrame()
-    tab5_aid_stats['Statistics'] = ['_Mean_', '_Std_', '_Time_', '_1-Ssim_', '_Mse_']
+    tab5_aid_stats['Statistics'] = ['_Mean_', '_Std_', '_Time_', '_ssim_', '_Mse_']
     tab5_aid_stats.set_index('Statistics', inplace=True)
 
 
@@ -899,8 +902,10 @@ def run():
         endmember.append(k.sad_em_min)
         abundance.append(k.sad_ab_min)
     snr_w = str(g)
-    sio.savemat('./r/data_out_1/endmember' + '_' + snr_w, {'A': endmember})
-    sio.savemat('./r/data_out_1/abundance' + '_' + snr_w, {'S': abundance})
+    #np.save(result_path +'/data_out/endmember' + '_' + snr_w + '.npy', endmember)
+    #np.save(result_path +'/data_out/abundance' + '_' + snr_w + '.npy', abundance)
+    sio.savemat(result_path +'/data_out_var/endmember' + '_' + snr_w, {'A': endmember})
+    sio.savemat(result_path +'/data_out_var/abundance' + '_' + snr_w, {'S': abundance})
 
     for i in range(0, 4):  # 绘制端元对比图
         plt.figure()
@@ -920,16 +925,19 @@ def run():
         plt.ylabel('reflectance (%)')
         plt.tight_layout()
 
-        plt.savefig('./r/IMG_1/SNR=' + snr_w + '_' + endmember_names[i] + '_Endmember.png', format='png', dpi=200)
-        file.write('![alt text](./IMG_1/SNR=' + snr_w + '_' + endmember_names[i] + '_Endmember.png)\n\n')
+        #plt.savefig('./r/IMG_2/SNR=' + snr_w + '_' + endmember_names[i] + '_Endmember.png', format='png', dpi=200)
+        #file.write('![alt text](./IMG_2/SNR=' + snr_w + '_' + endmember_names[i] + '_Endmember.png)\n\n')
+
+        plt.savefig(result_path +'/IMG_var/SNR=' + snr_w + '_' + endmember_names[i] + '_Endmember.png', format='png', dpi=200)
+        file.write('![alt text](' + result_path +'/IMG_var/SNR=' + snr_w + '_' + endmember_names[i] + '_Endmember.png)\n\n')
 
         # 绘制丰度对比图
         new_abundance = []
         new_abundance.append(np.reshape(algo[0].sad_S_img[i, :, :], [1, nR, nC]))
-        new_abundance.append(np.reshape(algo[1].sad_S_img[i, :, :], [1, nR, nC]))
-        new_abundance.append(np.reshape(algo[2].sad_S_img[i, :, :], [1, nR, nC]))
-        new_abundance.append(np.reshape(algo[3].sad_S_img[i, :, :], [1, nR, nC]))
-        new_abundance.append(np.reshape(algo[4].sad_S_img[i, :, :], [1, nR, nC]))
+        #new_abundance.append(np.reshape(algo[1].sad_S_img[i, :, :], [1, nR, nC]))
+        #new_abundance.append(np.reshape(algo[2].sad_S_img[i, :, :], [1, nR, nC]))
+        #new_abundance.append(np.reshape(algo[3].sad_S_img[i, :, :], [1, nR, nC]))
+        #new_abundance.append(np.reshape(algo[4].sad_S_img[i, :, :], [1, nR, nC]))
         #new_abundance.append(np.reshape(algo[5].sad_S_img[i, :, :], [1, nR, nC]))
         #new_abundance.append(np.reshape(algo[6].sad_S_img[i, :, :], [1, nR, nC]))
         new_abundance.append(np.reshape(algo[0].abf_gt_img[i, :, :], [1, nR, nC]))
@@ -937,15 +945,19 @@ def run():
         plt_s = plot_image_grid(new_abundance, factor=8, nrow=5)
         plt_s.title(endmember_names[i])
         plt_s.tight_layout()
-        plt_s.savefig('./r/IMG_1/SNR=' + snr_w + '_' + endmember_names[i] + '_Abundance.png', format='png',
+        plt_s.savefig(result_path +'/IMG_var/SNR=' + snr_w + '_' + endmember_names[i] + '_Abundance.png', format='png',
                       dpi=200)
-        file.write('![alt text](./IMG_1/SNR=' + snr_w + '_' + endmember_names[i] + '_Abundance.png)\n\n')
+        file.write('![alt text](' + result_path +'/IMG_varSNR=' + snr_w + '_' + endmember_names[i] + '_Abundance.png)\n\n')
 
 
 if __name__ == '__main__':
-    data_loc = "./DATA/dip_data/unmixing3/mixed.mat"
-    gt_loc = "./DATA/dip_data/unmixing3/OtherInfo/A.mat"
-    abf_true_loc = "./DATA/dip_data/unmixing3/OtherInfo/abf.mat"
+
+    data_path= "/mnt/Data/SU/data_results/simu1/"
+    result_path = "/mnt/Data/SU/data_results/simu1/results" # + str(i+1)
+    #pdb.set_trace()
+    data_loc = data_path + "raw_data/mixed.mat"
+    gt_loc = data_path + "raw_data/GT/A.mat"
+    abf_true_loc =  data_path + "/raw_data/GT/abf.mat"
 
     debug = True
     verbose = True
@@ -953,8 +965,8 @@ if __name__ == '__main__':
     nSkewers = 1000    # PPI的投影向量个数
     initSkewers = None    # PPI的初始投影向量个数
     maxit = 3 * num_endm    # N-FINDR方法的最大迭代次数
-    SNR_noise = [10,20,30,40]
-    mrun = 1 # 每种方法的迭代次数
+    SNR_noise = [10]#[10,20,30,40]
+    mrun = 1 # 每种方法的迭代次数 20
     # interation = 50 # EM iteration number of traditional methods for A and S estimation 20
 
     # # for AEsmm
@@ -963,7 +975,7 @@ if __name__ == '__main__':
     INPUT = 'noise'
     pad = 'reflection'
     OPT_OVER = 'net'
-    LR = 0.00025
+    LR = 0.000025
     LR_mse = 0.000025
     tv_weight = 0.0
     OPTIMIZER = 'adam'
@@ -971,7 +983,7 @@ if __name__ == '__main__':
     # # # #
     iter_KP = 10
 
-    file = open("./r/demo1.md", "w")
+    file = open(result_path +"/demo.md", "w")
     file.write("# Comparison of Unmixing method" + "\n\n")
     file.write('## Envirionment Setup: \n\n')
     file.write('Monte Carlo runs: %s \n\n' % mrun)  # 每种方法的迭代次数

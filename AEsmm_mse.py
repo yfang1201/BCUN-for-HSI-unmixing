@@ -66,7 +66,7 @@ class AEsmm_mse(object):
     def __init__(self, argin, verbose):
         self.verbose = verbose
         if (self.verbose):
-            print('---		Initializing AESMM algorithm')
+            print('---		Initializing AESMM MSE algorithm')
         self.data = torch.tensor(argin[0]).type(dtype) # url
         self.nRow = argin[1]  #
         self.nCol = argin[2]  #

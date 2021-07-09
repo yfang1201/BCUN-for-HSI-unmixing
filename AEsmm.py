@@ -81,13 +81,15 @@ class AEsmm(object):
         self.net_input = torch.reshape(torch.tensor(argin[15]).cuda().type(dtype), [1, self.nBand, self.nRow, self.nCol])
         self.var_noi = torch.tensor(argin[16]).cuda().type(dtype)
         self.A_true = argin[17]
-        self.S_true = argin[18]
+        #self.S_true = argin[18]
+
+
 
         self.upsample_mode = 'bilinear'
         self.skip_n33d = 128
         self.skip_n33u = 128
         self.skip_n11 = 4
-        self.num_scales = 3
+        self.num_scales = 3 #3
         self.act_fun = 'LeakyReLU'
         self.downsample_mode = 'stride'
 
@@ -103,11 +105,12 @@ class AEsmm(object):
 
         #loc = np.random.randint(self.nRow * self.nCol + 1, size=4)
         #initA = self.data[:, loc].squeeze()
-        #pdb.set_trace()
-        # initA, indice, Yp = vca(self.data.cpu().numpy(), self.k, verbose=True, snr_input=0)
-        vca = VCA([self.data.cpu().numpy(), self.nRow, self.nCol, self.nBand, self.npixel, self.k], self.verbose)
-        initA = vca.extract_endmember()[0]
-        A_new = torch.tensor(initA).cuda()
+        pdb.set_trace()
+        #initA, indice, Yp = vca(self.data.cpu().numpy(), self.k, verbose=True, snr_input=0)
+        #vca = VCA([self.data.cpu().numpy(), self.nRow, self.nCol, self.nBand, self.npixel, self.k], self.verbose)
+        #initA = vca.extract_endmember()[0]
+        #A_new = torch.tensor(initA).cuda()
+        A_new = torch.tensor(self.A_true).cuda()
         #pdb.set_trace()
         mixed_input = torch.reshape(self.data, [1, self.nBand, self.nRow, self.nCol]).type(dtype)
 
@@ -119,7 +122,13 @@ class AEsmm(object):
                 torch.matmul(A_new.detach().float(), torch.reshape(S, (1 * self.k, self.npixel))),
                 (1, self.nBand, self.nRow, self.nCol))  # decoder A:k*P
             #total_loss = mse(out_mixed, mixed_input)
-            total_loss = MdisLoss(out_mixed, mixed_input, self.var_noi)
+            #pdb.set_trace()
+            res = (out_mixed - mixed_input).squeeze(0).reshape(self.nBand, self.npixel)
+
+            var = res.var(1).detach()
+            #print(var.mean())
+            total_loss = MdisLoss(out_mixed, mixed_input, self.var_noi) ## using fixed var
+            #total_loss = MdisLoss(out_mixed, mixed_input, var) #### update var iteratively
             if self.tv_weight > 0:
                 total_loss += float(self.tv_weight * tv_loss(S))
             total_loss.backward()
@@ -183,7 +192,8 @@ class AEsmm(object):
                     index_ind = np.ravel_multi_index([index[:, 0].cpu().numpy(), index[:, 1].cpu().numpy()],
                                                      (self.nRow, self.nCol))
                     ind_matched = np.unravel_index(index_ind, (self.nRow, self.nCol))
-                    Y = (mixed_input - torch.reshape(torch.matmul(A_new, S2),
+                    #pdb.set_trace()
+                    Y = (mixed_input - torch.reshape(torch.matmul(A_new, S2.double()),
                                                      [1, self.nBand, self.nRow, self.nCol])) / torch.reshape(
                         S1[ki, :], [1, 1, self.nRow, self.nCol]).repeat(1, self.nBand, 1, 1)
                     ak = torch.mean(Y[:, :, ind_matched[0], ind_matched[1]], 2)  # .squeeze(0).squeeze(1)

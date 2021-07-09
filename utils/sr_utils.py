@@ -139,7 +139,11 @@ def MdisLoss(output, target, var):
     N = output.size()[3]
     output1 = torch.reshape(output,[P,M*N])
     target1 = torch.reshape(target,[P,M*N])
-    loss = torch.mean((torch.t(output1 - target1)**2)/var)
+    #pdb.set_trace()
+    res = torch.t(output1 - target1)
+    #var = res.var(0)
+    loss = torch.mean((res**2)/var)
+    #loss = torch.mean((torch.t(output1 - target1)**2)/var)
     return loss
 
 def EdisLoss(output, target, var):

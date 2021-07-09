@@ -1,0 +1,60 @@
+import markdown
+import pdb
+import scipy.io as sio
+import matplotlib.pyplot as plt
+import numpy as np
+from bs4 import BeautifulSoup
+data_path = '/mnt/Data/SU/data_results/simu1/'
+result_path = '/mnt/Data/SU/data_results/simu1/results/'
+
+#html = markdown.markdown(open(result_path + 'demo.md').read())
+#pdb.set_trace()
+nR = 104
+nC = 104
+K = 4
+method_list = ['PPI', 'NFINDR', 'VCA', 'KPmeans', 'AEsmm_mse']
+SNR = [10, 20, 30, 40]
+for me in range(len(method_list)):
+    for snr in range(len(SNR)):
+        #pdb.set_trace()
+########## plot abundance maps obtained by each method over SNR values #############
+        #['sad_ab_min_' + (method_list[me]) +'_mse']  #(4, 10816)
+        ab_mat = sio.loadmat(result_path + 'data_out/' + str(SNR[snr]) + (method_list[me]) + 'ab.mat')[str('sad_ab_min_'+ (method_list[me]))]
+        ab_true = sio.loadmat(data_path + 'raw_data/GT/abf.mat')['abf']#
+        #pdb.set_trace()
+        ab_true1 = np.reshape(ab_true,[K, nR, nC]).transpose(0, 2, 1)#.squeeze(0)
+
+        for i in range(ab_mat.shape[0]):
+            plt.imshow(np.reshape(ab_mat[i, :], [nR, nC]),'gist_gray')
+            plt.axis('off')
+            plt.xticks([])
+            plt.yticks([])
+            plt.savefig(result_path + '/IMG/SNR=' + str(SNR[snr]) + '_' + (method_list[me]) + '_Abundance' + str(i+1) +
+                        '.png', format='png', dpi=200, bbox_inches='tight', pad_inches=0.0)
+
+            plt.imshow(ab_true1[i,:,:].squeeze(), 'gist_gray')
+            plt.savefig(result_path + '/IMG/True_abundance' + str(i + 1) +'.png', format='png', dpi=200, bbox_inches='tight', pad_inches=0.0)
+
+
+
+
+########## plot endmembers obtained by each methods over SNR values #############
+#AEsmm_mse_10_em = sio.loadmat(result_path+'data_out/10AEsmm_mseem.mat')['sad_em_min_AEsmm_mse']  #(200, 4)
+        '''em_mat = sio.loadmat(result_path + 'data_out/' + str(SNR[snr]) + (method_list[me]) + 'em.mat')[str('sad_em_min_'+ (method_list[me]))]
+        em_true = sio.loadmat(data_path + 'raw_data/GT/A.mat')['A'][0:200,:]
+        #pdb.set_trace()
+        for i in range(em_true.shape[1]):
+            x=np.arange(1,201,1)
+            plt.plot(x,em_mat[:,i],'g--', x, em_true[:,i],'k-')
+            plt.xlabel('band')
+            plt.ylabel('reflectance')
+
+            plt.savefig(result_path + '/IMG/SNR=' + str(SNR[snr]) + '_' + (method_list[me]) + '_Endmember' + str(i+1) +
+                        '.png', format='png', dpi=200, bbox_inches='tight', pad_inches=0.0)
+            plt.close()'''
+
+
+
+
+
+########## plot average SID AID AAD SAD by each methods over 20 runs  #############
