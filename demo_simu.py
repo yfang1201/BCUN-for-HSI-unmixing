@@ -917,13 +917,13 @@ if __name__ == '__main__':
     nSkewers = 1000    # PPI projection number
     initSkewers = None    # PPI initial projection number
     maxit = 3 * num_endm    # N-FINDR max iteration
-    SNR_noise = [10]#[10,20,30,40]
+    SNR_noise = [20]#[10,20,30,40]
     mrun = 1 # iteration for each method 20
 
     # # for AEsmm
-    #(only for simulated data.Real HSIs require hyperparameters adjustment)
-    iterEM = 2#50 for best
-    iters = 2 #20 for best
+    #(only for simulated data.Real HSIs require hyperparameters tuning)
+    iterEM = 50#50 for best
+    iters = 20 #20 for best
     INPUT = 'noise'
     pad = 'reflection'
     OPT_OVER = 'net'

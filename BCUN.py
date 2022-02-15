@@ -90,7 +90,7 @@ class BCUN(object):
         self.skip_n33d = 128
         self.skip_n33u = 128
         self.skip_n11 = 4
-        self.num_scales = 2 #3
+        self.num_scales = 3 #3
         self.act_fun = 'LeakyReLU'
         self.downsample_mode = 'stride'
 
