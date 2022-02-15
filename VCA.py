@@ -103,3 +103,7 @@ class VCA(object):
 		self.endmembers = R_p[:,indice]
 		self.purepixels = indice
 		return [self.endmembers, self.purepixels]
+
+
+
+

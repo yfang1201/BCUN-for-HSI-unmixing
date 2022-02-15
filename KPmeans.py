@@ -33,12 +33,12 @@ class KPmeans(object):
         self.iter = argin[5]
         self.iter0 = argin[5]
         self.k = argin[6]  # how many endmembers
-        self.snr = argin[7]
+        #self.snr = argin[7]
         #### add more if need
 
     def extract_endmember(self):
         self.data = np.asarray(self.data)
-        S = np.zeros((4,self.nPixel))
+        S = np.zeros((self.k,self.nPixel))
         mixed_input = torch.tensor(np.reshape(self.data, [1, self.nBand, self.nRow, self.nCol])).cuda()
         # initA, indice, Yp = vca(self.data, self.k, verbose=True, snr_input=self.snr)
         vca = VCA([self.data, self.nRow, self.nCol, self.nBand, self.nPixel, self.k], self.verbose)
@@ -50,6 +50,7 @@ class KPmeans(object):
             # E-step
             A_new=A_new.cpu().numpy()
             for ii in range(0,self.nPixel):
+
                 S[:,ii] = fnnls(np.dot(A_new.T, A_new), np.dot(A_new.T, self.data[:,ii]))
             # S = sio.loadmat('./results/data_out_1/SS.mat')['s_abundance']
             #     S[:,ii] = S[:,ii]/sum(S[:,ii])

@@ -1,7 +1,7 @@
 #!/usr/bin/env python 
 # -*- coding: utf-8 -*-
-# @Author  : xian
-# @Time    : 2019/8/21 10:33
+# @Author  : Yuxian Wang, Yuan Fang
+# @Time    : 2022-02-15
 
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
@@ -12,8 +12,8 @@ import numpy as np
 from VCA import *
 from PPI import *
 from NFINDR import *
-from AEsmm import *
-from AEsmm_mse import *
+from BCUN import *
+from BCUN0 import *
 from KPmeans import *
 import matplotlib.pyplot as plt
 import torch
@@ -104,22 +104,21 @@ class DEMO(object):
         self.p = argin[2]
         self.name = argin[3]
         self.abf_gt = np.reshape(np.reshape(self.abf_gt, [self.p, self.nCol, self.nRow]).transpose(0, 2, 1), [self.p, self.nCol*self.nRow])
-        # 保存加了噪声的数据
-        sio.savemat(result_path +'/data_out_var/' + str(g) + '_mixed', {'mixed': self.data})
-        #np.save(result_path +'/data_out_var/' + str(g) + '_mixed.npy', self.data)
-        data_loc2 = result_path +'/data_out_var/' + str(g) + '_mixed'
+        # save img with noise added
+        sio.savemat(result_path +'/data_out/' + str(g) + '_mixed', {'mixed': self.data})
+        data_loc2 = result_path +'/data_out/' + str(g) + '_mixed'
         self.data = sio.loadmat(data_loc2)['mixed']
-        if argin[3] == 'AEsmm':
+        if argin[3] == 'BCUN':
              if (verbose):
-                 print('... Selecting AEsmm')
-             self.ee = AEsmm([self.data, self.nRow, self.nCol, self.nBand, self.nPixel, self.p, iterEM, iters,
+                 print('... Selecting BCUN')
+             self.ee = BCUN([self.data, self.nRow, self.nCol, self.nBand, self.nPixel, self.p, iterEM, iters,
                               INPUT, pad, OPT_OVER, LR, tv_weight, OPTIMIZER, NET_TYPE,
                               self.data.transpose(1,0),
-                              self.addnoise(self.data, g / 2)[1], self.groundtruth, self.abf_gt], self.verbose)   # self.addnoise(self.data, g/2)[0]--->self.data.transpose(1,0)
-        if argin[3] == 'AEsmm_mse':
+                              self.addnoise(self.data, g / 2)[2], self.groundtruth, self.abf_gt], self.verbose)   # self.addnoise(self.data, g/2)[0]--->self.data.transpose(1,0)
+        if argin[3] == 'BCUN0':
              if (verbose):
-                 print('... Selecting AEsmm_mse')
-             self.ee = AEsmm_mse([self.data, self.nRow, self.nCol, self.nBand, self.nPixel, self.p, iterEM, iters, INPUT, pad, OPT_OVER, LR_mse, tv_weight, OPTIMIZER, NET_TYPE, self.data.transpose(1,0), self.addnoise(self.data, g/2)[1], self.groundtruth, self.abf_gt], self.verbose)   # self.addnoise(self.data, g/2)[0]--->self.data.transpose(1,0)
+                 print('... Selecting BCUN0')
+             self.ee = BCUN0([self.data, self.nRow, self.nCol, self.nBand, self.nPixel, self.p, iterEM, iters, INPUT, pad, OPT_OVER, LR_mse, tv_weight, OPTIMIZER, NET_TYPE, self.data.transpose(1,0), self.addnoise(self.data, g/2)[1], self.groundtruth, self.abf_gt], self.verbose)   # self.addnoise(self.data, g/2)[0]--->self.data.transpose(1,0)
         if argin[3] == 'VCA':
             if (verbose):
                 print('... Selecting VCA endmember extractor')
@@ -180,7 +179,7 @@ class DEMO(object):
 
         mixed = np.transpose(mixedpure + noise_img)  # channels*(rows*columns)
         #self.data = mixed
-        return mixed, var_img
+        return mixed, var_img, var_noi
 
     def load_groundtruth(self, gt_loc):
         if (verbose):
@@ -293,15 +292,15 @@ class DEMO(object):
     def extract_endmember(self):
         if (verbose):
             print('... Extracting endmembers')
-        self.raw_endmembers = self.ee.extract_endmember()[0]     # 220*4 提取所得的端元光谱值
+        self.raw_endmembers = self.ee.extract_endmember()[0]     # 220*4
 
     def SAD(self, a, b):  # 计算光谱角距离
         if (verbose):
             print('... Applying SAD metric')
-        [L, N] = a.shape  # L 波段数，N 端元数
+        [L, N] = a.shape  # L bands，N endmembers
         errRadians = np.zeros(N)
         b = np.asmatrix(b)
-        for k in range(0, N):  # 逐端元
+        for k in range(0, N):  #endmember-wise
             tmp = np.asmatrix(np.reshape(a[:, k], (L, 1)))
             s1 = tmp.T
             s2 = b
@@ -342,7 +341,7 @@ class DEMO(object):
         if (verbose):
             print('... Applying AAD metric')
         #pdb.set_trace()
-        [L, N] = a.shape  # L 端元数，N 像元数
+        [L, N] = a.shape
         errRadians = np.zeros(L)
         b = np.asmatrix(b)
         for k in range(0, L):
@@ -561,46 +560,12 @@ class DEMO(object):
         self.time_runs = []
         for i in range(mrun):
             print('-----------------------------------------------' + str(i) + '-----------------------------------------------')
-            start = timer()    # 开始时间
-            # if any( self.name in s for s in ['VCA','PPI', 'NFINDR','MVCNMF']):
-            #     #pdb.set_trace()
-            #     self.extract_endmember()  # 每种方法各自的端元提取
-            #     [self.raw_endmembers, self.S] = self.NNLS(self.data, self.raw_endmembers, 10, 1)    # 丰度计算
-            if any( self.name in s for s in ['VCA','PPI', 'NFINDR','MVCNMF']):
-                #pdb.set_trace()
-                self.extract_endmember()  # 每种方法各自的端元提取
-                data = np.asarray(self.data)
-                A_new = np.asarray(self.raw_endmembers)
-                for ii in range(0, self.nPixel):
-                    self.S[:, ii] = fnnls(np.dot(A_new.T, A_new), np.dot(A_new.T, data[:, ii]))
-                # pdb.set_trace()
-            elif any( self.name in s for s in ['AEsmm', 'AEsmm_mse']):
-                #pdb.set_trace()
-                self.extract_endmember()  # 每种方法各自的端元提取
-                self.raw_endmembers = self.ee.endmember
-                self.S = self.ee.abundance
-            ###############################################
-            elif any( self.name in s for s in ['KPmeans']):
-                #pdb.set_trace()
-                self.extract_endmember()  # 每种方法各自的端元提取
-                self.raw_endmembers = self.ee.endmember
-                # for ki in range(self.nBand):
-                #     self.raw_endmembers[ki, :] = self.raw_endmembers[ki,:] / sum(self.raw_endmembers[ki,:])
-                self.S = self.ee.abundance
-
-            '''elif any( self.name in s for s in ['uDAs']):
-                raw_loc = './r/udas_r/'
-                a_loc = raw_loc + str(i+1) + '/' + 'A' + str(g) + '.mat'
-                s_loc = raw_loc + str(i+1) + '/' + 'S' + str(g) + '.mat'
-                a_data = sio.loadmat(a_loc)
-                s_data = sio.loadmat(s_loc)
-                self.raw_endmembers = a_data['A']
-                self.S = s_data['S']
-                self.S = np.reshape(np.reshape(self.S,[self.p, self.nCol, self.nRow]).transpose(0,2,1),[self.p,self.nPixel])'''
-            ##################################################
-
-            end = timer()    # 结束时间
-            self.time_runs.append(end - start)    # 丰度估计所花费的时间
+            start = timer()
+            self.extract_endmember()
+            self.raw_endmembers = self.ee.endmember
+            self.S = self.ee.abundance
+            end = timer()    #
+            self.time_runs.append(end - start)
 
             [sad_idx, sad_value] = self.best_sad_match()
             [sid_idx, sid_value] = self.best_sid_match()
@@ -755,18 +720,18 @@ class DEMO(object):
         self.abf_gt_img = np.reshape(self.abf_gt, [self.num_gtendm, self.nRow, self.nCol])
         #np.save(result_path +'/data_out/' + str(g) + self.name + 'ab.npy', self.sad_ab_min)
         #np.save(result_path + '/data_out/' + str(g) + self.name + 'em.npy', self.sad_em_min)
-        sio.savemat(result_path +'/data_out_var/' + str(g) + self.name + 'ab', {'sad_ab_min_'+ self.name: self.sad_ab_min})
-        sio.savemat(result_path +'/data_out_var/' + str(g) + self.name + 'em', {'sad_em_min_'+ self.name: self.sad_em_min})
+        sio.savemat(result_path +'/data_out/' + str(g) + self.name + 'ab', {'sad_ab_min_'+ self.name: self.sad_ab_min})
+        sio.savemat(result_path +'/data_out/' + str(g) + self.name + 'em', {'sad_em_min_'+ self.name: self.sad_em_min})
 
 def run():
     endmember_names = ['A', 'B', 'C', 'D']
 
-    print("AEsmm")
-    aesmm = DEMO([data_loc, gt_loc, num_endm, 'AEsmm'], verbose)
-    aesmm.best_run(mrun)
-    '''print("AEsmm_mse")
-    aesmmmse = DEMO([data_loc, gt_loc, num_endm, 'AEsmm_mse'], verbose)
-    aesmmmse.best_run(mrun)'''
+    print("BCUN")
+    bcun = DEMO([data_loc, gt_loc, num_endm, 'BCUN'], verbose)
+    bcun.best_run(mrun)
+    '''print("BCUN0")
+    bcun0 = DEMO([data_loc, gt_loc, num_endm, 'BCUN0'], verbose)
+    bcun0.best_run(mrun)'''
     '''print("PPI")
     ppi = DEMO([data_loc, gt_loc, num_endm, 'PPI', nSkewers, initSkewers], verbose)
     ppi.best_run(mrun)
@@ -779,13 +744,10 @@ def run():
     print("KPmeans")
     kpmeans = DEMO([data_loc, gt_loc, num_endm, 'KPmeans', iter_KP], verbose)
     kpmeans.best_run(mrun)'''
-    '''print("uDAs")
-    udas = DEMO([data_loc, gt_loc, num_endm, 'uDAs'], verbose)
-    udas.best_run(mrun)'''
 
     #algo = [ppi, nfindr, vca, aesmmmse, kpmeans]
     #algo = [aesmm,vca,kpmeans,udas]
-    algo = [aesmm]
+    algo = [bcun]
 
     tab1_sad = pd.DataFrame()
     tab1_sad['Endmembers'] = endmember_names
@@ -902,12 +864,10 @@ def run():
         endmember.append(k.sad_em_min)
         abundance.append(k.sad_ab_min)
     snr_w = str(g)
-    #np.save(result_path +'/data_out/endmember' + '_' + snr_w + '.npy', endmember)
-    #np.save(result_path +'/data_out/abundance' + '_' + snr_w + '.npy', abundance)
-    sio.savemat(result_path +'/data_out_var/endmember' + '_' + snr_w, {'A': endmember})
-    sio.savemat(result_path +'/data_out_var/abundance' + '_' + snr_w, {'S': abundance})
+    sio.savemat(result_path +'/data_out/endmember' + '_' + snr_w, {'A': endmember})
+    sio.savemat(result_path +'/data_out/abundance' + '_' + snr_w, {'S': abundance})
 
-    for i in range(0, 4):  # 绘制端元对比图
+    for i in range(0, 4):  # plot endmembers
         plt.figure()
         plt.plot(algo[0].groundtruth[:, i], label='USGS Library')
 
@@ -925,53 +885,45 @@ def run():
         plt.ylabel('reflectance (%)')
         plt.tight_layout()
 
-        #plt.savefig('./r/IMG_2/SNR=' + snr_w + '_' + endmember_names[i] + '_Endmember.png', format='png', dpi=200)
-        #file.write('![alt text](./IMG_2/SNR=' + snr_w + '_' + endmember_names[i] + '_Endmember.png)\n\n')
 
-        plt.savefig(result_path +'/IMG_var/SNR=' + snr_w + '_' + endmember_names[i] + '_Endmember.png', format='png', dpi=200)
-        file.write('![alt text](' + result_path +'/IMG_var/SNR=' + snr_w + '_' + endmember_names[i] + '_Endmember.png)\n\n')
+        plt.savefig(result_path +'/IMG/SNR=' + snr_w + '_' + endmember_names[i] + '_Endmember.png', format='png', dpi=200)
+        file.write('![alt text](' + result_path +'/IMG/SNR=' + snr_w + '_' + endmember_names[i] + '_Endmember.png)\n\n')
 
-        # 绘制丰度对比图
+        # abundance mapping
         new_abundance = []
         new_abundance.append(np.reshape(algo[0].sad_S_img[i, :, :], [1, nR, nC]))
-        #new_abundance.append(np.reshape(algo[1].sad_S_img[i, :, :], [1, nR, nC]))
-        #new_abundance.append(np.reshape(algo[2].sad_S_img[i, :, :], [1, nR, nC]))
-        #new_abundance.append(np.reshape(algo[3].sad_S_img[i, :, :], [1, nR, nC]))
-        #new_abundance.append(np.reshape(algo[4].sad_S_img[i, :, :], [1, nR, nC]))
-        #new_abundance.append(np.reshape(algo[5].sad_S_img[i, :, :], [1, nR, nC]))
-        #new_abundance.append(np.reshape(algo[6].sad_S_img[i, :, :], [1, nR, nC]))
         new_abundance.append(np.reshape(algo[0].abf_gt_img[i, :, :], [1, nR, nC]))
 
         plt_s = plot_image_grid(new_abundance, factor=8, nrow=5)
         plt_s.title(endmember_names[i])
         plt_s.tight_layout()
-        plt_s.savefig(result_path +'/IMG_var/SNR=' + snr_w + '_' + endmember_names[i] + '_Abundance.png', format='png',
+        plt_s.savefig(result_path +'/IMG/SNR=' + snr_w + '_' + endmember_names[i] + '_Abundance.png', format='png',
                       dpi=200)
-        file.write('![alt text](' + result_path +'/IMG_varSNR=' + snr_w + '_' + endmember_names[i] + '_Abundance.png)\n\n')
+        file.write('![alt text](' + result_path +'/IMG/SNR=' + snr_w + '_' + endmember_names[i] + '_Abundance.png)\n\n')
 
 
 if __name__ == '__main__':
 
-    data_path= "/mnt/Data/SU/data_results/simu1/"
-    result_path = "/mnt/Data/SU/data_results/simu1/results" # + str(i+1)
+    data_path= "DATA/simu1/"
+    result_path = "DATA/simu1/results" # + str(i+1)
     #pdb.set_trace()
     data_loc = data_path + "raw_data/mixed.mat"
     gt_loc = data_path + "raw_data/GT/A.mat"
-    abf_true_loc =  data_path + "/raw_data/GT/abf.mat"
+    abf_true_loc = data_path + "/raw_data/GT/abf.mat"
 
     debug = True
     verbose = True
-    num_endm = 4    # 混合影像数据的端元数
-    nSkewers = 1000    # PPI的投影向量个数
-    initSkewers = None    # PPI的初始投影向量个数
-    maxit = 3 * num_endm    # N-FINDR方法的最大迭代次数
+    num_endm = 4    # endmembers number
+    nSkewers = 1000    # PPI projection number
+    initSkewers = None    # PPI initial projection number
+    maxit = 3 * num_endm    # N-FINDR max iteration
     SNR_noise = [10]#[10,20,30,40]
-    mrun = 1 # 每种方法的迭代次数 20
-    # interation = 50 # EM iteration number of traditional methods for A and S estimation 20
+    mrun = 1 # iteration for each method 20
 
     # # for AEsmm
-    iterEM = 50 #50 for best
-    iters = 20 #20 for best
+    #(only for simulated data.Real HSIs require hyperparameters adjustment)
+    iterEM = 2#50 for best
+    iters = 2 #20 for best
     INPUT = 'noise'
     pad = 'reflection'
     OPT_OVER = 'net'
@@ -986,15 +938,15 @@ if __name__ == '__main__':
     file = open(result_path +"/demo.md", "w")
     file.write("# Comparison of Unmixing method" + "\n\n")
     file.write('## Envirionment Setup: \n\n')
-    file.write('Monte Carlo runs: %s \n\n' % mrun)  # 每种方法的迭代次数
-    file.write('Number of endmembers to estimate: %s \n\n' % num_endm)  # 提取的端元数
-    file.write('Number of skewers (PPI): %s \n\n' % nSkewers)  # PPI方法的投影向量数
-    file.write('Maximum number of iterations (N-FINDR): %s \n\n' % maxit)  # N-FINDR方法的最大迭代次数
+    file.write('Monte Carlo runs: %s \n\n' % mrun)  #
+    file.write('Number of endmembers to estimate: %s \n\n' % num_endm)  #
+    file.write('Number of skewers (PPI): %s \n\n' % nSkewers)  #
+    file.write('Maximum number of iterations (N-FINDR): %s \n\n' % maxit)  #
 
     if debug:
         for s in range(0, len(SNR_noise)):
             g = SNR_noise[s]
-            file.write('## SNR = : %s \n\n' % g)  # SNR的大小
-            run()  # 运行
+            file.write('## SNR = : %s \n\n' % g)  # SNR
+            run()
 
     file.close()
